@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quantum Labratories | Cutting-Edge Quantum Tech</title>
+  <style>
+    :root{--bg:#0a0d14;--fg:#f5f8ff;--accent:#15e3ff;--card:#111722;--r:12px}
+    *{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
+    body{margin:0;background:var(--bg);color:var(--fg);line-height:1.6}
+    header{padding:2rem 1rem;text-align:center}
+    header h1{margin:0;font-size:clamp(2rem,4vw,3rem);color:var(--accent)}
+    main{max-width:960px;margin:auto;padding:0 1rem 4rem;display:grid;gap:2rem}
+    .tech{background:var(--card);padding:1.5rem;border-radius:var(--r);box-shadow:0 4px 12px rgba(0,0,0,.45);transition:.2s transform;cursor:pointer}
+    .tech:hover{transform:translateY(-4px)}
+    .tech h2{margin:0 0 .4rem;color:var(--accent)}
+    .kw{font-size:.9rem;opacity:.8}
+    #chat,#search,#viewer3d-section{padding:2rem 1rem;border-top:1px solid #333}
+    #chat h2,#search h2,#tech-section h2,#viewer3d-section h2{margin:0 0 .5rem;color:var(--accent)}
+    textarea,input{width:100%;padding:.5rem;border-radius:var(--r);border:1px solid #444;background:#000;color:#fff}
+    button{margin-top:.5rem;padding:.5rem 1.3rem;border:none;border-radius:var(--r);background:var(--accent);color:#000;font-weight:600;cursor:pointer}
+    pre{white-space:pre-wrap;background:#000;padding:1rem;border-radius:var(--r);min-height:4rem}
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Quantum Labratories</h1>
+    <p>Building tomorrow’s quantum future — today.</p>
+  </header>
+
+  <!-- Tech cards -->
+  <section id="tech-section">
+    <h2>Featured Quantum Technologies</h2>
+    <main id="tech-grid"><p>Loading technologies…</p></main>
+  </section>
+
+  <!-- 3-D viewer -->
+  <section id="viewer3d-section">
+    <h2>Laser Device Preview</h2>
+    <div id="viewer3d" style="width:100%;height:500px;"></div>
+  </section>
+
+  <!-- Superconductor search -->
+  <section id="search">
+    <h2>Search Superconductors</h2>
+    <input id="searchBox" placeholder="Search by name or formula…">
+    <button onclick="search()">Search</button>
+    <div id="searchResults"></div>
+  </section>
+
+  <!-- AI chat -->
+  <section id="chat">
+    <h2>Ask our Quantum AI</h2>
+    <textarea id="prompt" rows="3" placeholder="Type your question…"></textarea><br>
+    <button id="sendBtn">Send</button>
+    <pre id="answer"></pre>
+  </section>
+
+  <footer style="text-align:center;padding:2rem 0;font-size:.85rem;opacity:.7">
+    © 2025 Quantum Labratories
+  </footer>
+
+  <!-- Tech-card JS -->
+  <script>
+  async function loadTechCards(){
+    try{
+      const r = await fetch("/api/technologies");
+      const cards = await r.json();
+      const grid  = document.getElementById("tech-grid"); grid.innerHTML = "";
+      cards.forEach(t => {
+        const card = document.createElement("article");
+        card.className = "tech";
+        card.onclick = () => showTech(t);
+        card.innerHTML = `
+          <h2>${t.title}</h2>
+          <p>${t.summary}</p>
+          <p class="kw"><strong>Key terms:</strong> ${t.keywords.join(", ")}</p>
+        `;
+        grid.appendChild(card);
+      });
+    }catch{
+      document.getElementById("tech-grid").textContent="Couldn’t load data.";
+    }
+  }
+  function showTech(t){
+    alert(
+      `${t.title}\n\n` +
+      `Summary: ${t.summary}\n\n` +
+      `Key terms: ${t.keywords.join(", ")}`
+    );
+  }
+  loadTechCards();
+  </script>
+
+  <!-- Chat JS -->
+  <script>
+  document.getElementById("sendBtn").onclick = async ()=>{
+    const prompt = document.getElementById("prompt").value.trim();
+    if(!prompt) return;
+    const box = document.getElementById("answer"); box.textContent = "⏳ thinking…";
+    const res = await fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt})});
+    if(!res.ok){box.textContent="Error.";return;}
+    box.textContent = "";
+    const rd = res.body.getReader(), dec = new TextDecoder();
+    while(true){ const {value,done} = await rd.read(); if(done) break; box.textContent += dec.decode(value);}  };
+  </script>
+
+  <!-- Search JS -->
+  <script>
+  async function search(){
+    const q=document.getElementById("searchBox").value.trim();
+    if(!q) return;
+    const res=await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+    const {results} = await res.json();
+    const out = document.getElementById("searchResults");
+    if(results.length===0){ out.innerHTML="<p>No matches found.</p>"; return; }
+    out.innerHTML = results.map(r => `
+      <div class="tech">
+        <h2>${r.name}</h2>
+        <p><strong>Formula:</strong> ${r.formula}</p>
+        <p><strong>Critical Temperature:</strong> ${r.Tc_K} K</p>
+        <p><strong>Discovered:</strong> ${r.discovery}</p>
+      </div>
+    `).join("");
+  }
+  </script>
+
+  <!-- THREE.js viewer for red dot + streak -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+    renderer.setSize(window.innerWidth, 500);
+    document.getElementById("viewer3d").appendChild(renderer.domElement);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 1.5);
+    scene.add(ambient);
+
+    const light = new THREE.DirectionalLight(0xffffff, 2);
+    light.position.set(5,10,7.5);
+    scene.add(light);
+
+    // Dark red dot (sphere)
+    const dotGeo = new THREE.SphereGeometry(0.3, 32, 32);
+    const dotMat = new THREE.MeshStandardMaterial({color:0x550000, emissive:0x550000, emissiveIntensity:1});
+    const dot = new THREE.Mesh(dotGeo, dotMat);
+    scene.add(dot);
+
+    // Horizontal streak (glow bar)
+    const barGeo = new THREE.CylinderGeometry(0.05,0.05,10,32);
+    const barMat = new THREE.MeshStandardMaterial({color:0xff1111, emissive:0xff1111, emissiveIntensity:2});
+    const bar = new THREE.Mesh(barGeo, barMat);
+    bar.rotation.z = Math.PI/2;
+    bar.position.y = 0;
+    scene.add(bar);
+
+    camera.position.z = 5;
+    renderer.render(scene, camera);
+  </script>
+</body>
+</html>
